@@ -31,8 +31,8 @@ class PDFSlicerApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Auto PDF Slicer")
-        self.geometry("1020x680")
-        self.minsize(900, 580)
+        self.geometry("1020x760")
+        self.minsize(900, 620)
         self.configure(fg_color=BG_CARD)
 
         # 상태 변수
@@ -57,10 +57,9 @@ class PDFSlicerApp(ctk.CTk):
 
     # ── 왼쪽 사이드바 ─────────────────────────────────────────────────────────
     def _build_sidebar(self):
-        sidebar = ctk.CTkFrame(self, width=390, fg_color=BG_DARK, corner_radius=0)
+        sidebar = ctk.CTkScrollableFrame(self, width=390, fg_color=BG_DARK, corner_radius=0)
         sidebar.grid(row=0, column=0, sticky="nsew")
-        sidebar.grid_propagate(False)
-        sidebar.grid_rowconfigure(99, weight=1)   # 스페이서 행
+        sidebar.grid_columnconfigure(0, weight=1)
 
         # ── 로고 & 타이틀 ──
         header = ctk.CTkFrame(sidebar, fg_color="transparent")
@@ -174,28 +173,65 @@ class PDFSlicerApp(ctk.CTk):
                                            fg_color="#334155", border_color="#475569",
                                            text_color="#E2E8F0")
         self.entry_interval.grid(row=0, column=0)
-        ctk.CTkLabel(interval_row, text="쪽", font=("Pretendard", 13),
+        ctk.CTkLabel(interval_row, text="쪽 (기본값)", font=("Pretendard", 13),
                      text_color="#94A3B8").grid(row=0, column=1, padx=(8,0))
         row += 1
 
-        # 스페이서
-        ctk.CTkLabel(sidebar, text="").grid(row=99, column=0)
+        # ⑤ 결번 (건너뛸 번호)
+        ctk.CTkLabel(sidebar, text="⑤ 결번(건너뛸 번호)", font=("Pretendard", 11, "bold"),
+                     text_color="#94A3B8").grid(row=row, column=0, sticky="w", padx=28, pady=(18,6))
+        row += 1
+
+        skip_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        skip_row.grid(row=row, column=0, sticky="ew", padx=28)
+        skip_row.grid_columnconfigure(0, weight=1)
+        self.entry_skip = ctk.CTkEntry(skip_row, placeholder_text="예) 3, 7, 15",
+                                       height=36, corner_radius=8, fg_color="#334155",
+                                       border_color="#475569", text_color="#E2E8F0")
+        self.entry_skip.grid(row=0, column=0, sticky="ew")
+        row += 1
+
+        ctk.CTkLabel(sidebar, text="결석 등으로 빠진 번호. 해당 번호는 건너뛰고 다음 번호로 이어서 생성됩니다.",
+                     font=("Pretendard", 10), text_color="#64748B", wraplength=334,
+                     justify="left").grid(row=row, column=0, sticky="w", padx=28, pady=(4,0))
+        row += 1
+
+        # ⑥ 페이지 수 예외 (특정 번호만 페이지 수가 다를 때)
+        ctk.CTkLabel(sidebar, text="⑥ 페이지 수 예외(합칠 페이지)", font=("Pretendard", 11, "bold"),
+                     text_color="#94A3B8").grid(row=row, column=0, sticky="w", padx=28, pady=(18,6))
+        row += 1
+
+        exc_row = ctk.CTkFrame(sidebar, fg_color="transparent")
+        exc_row.grid(row=row, column=0, sticky="ew", padx=28)
+        exc_row.grid_columnconfigure(0, weight=1)
+        self.entry_exceptions = ctk.CTkEntry(exc_row, placeholder_text="예) 5:4, 12:6",
+                                             height=36, corner_radius=8, fg_color="#334155",
+                                             border_color="#475569", text_color="#E2E8F0")
+        self.entry_exceptions.grid(row=0, column=0, sticky="ew")
+        row += 1
+
+        ctk.CTkLabel(sidebar, text="번호:페이지수 형식. 특정 학생만 페이지가 더 많을 때(예: 5번 학생 4쪽) 지정하세요.",
+                     font=("Pretendard", 10), text_color="#64748B", wraplength=334,
+                     justify="left").grid(row=row, column=0, sticky="w", padx=28, pady=(4,0))
+        row += 1
 
         # ── 실행 버튼 ──
         ctk.CTkFrame(sidebar, height=1, fg_color="#334155").grid(
-            row=100, column=0, sticky="ew", padx=28, pady=(0,16))
+            row=row, column=0, sticky="ew", padx=28, pady=(20,16))
+        row += 1
 
         self.btn_run = ctk.CTkButton(
             sidebar, text="▶  일괄 분할 시작", height=48,
             font=("Pretendard", 14, "bold"),
             fg_color=ACCENT, hover_color="#1D4ED8", corner_radius=10,
             command=self.execute_bulk_slice)
-        self.btn_run.grid(row=101, column=0, sticky="ew", padx=28, pady=(0,8))
+        self.btn_run.grid(row=row, column=0, sticky="ew", padx=28, pady=(0,8))
+        row += 1
 
         # 상태 표시
         self.label_status = ctk.CTkLabel(sidebar, text="", font=("Pretendard", 10),
-                                         text_color="#60A5FA")
-        self.label_status.grid(row=102, column=0, pady=(0,24))
+                                         text_color="#60A5FA", wraplength=334, justify="left")
+        self.label_status.grid(row=row, column=0, pady=(0,24), padx=28, sticky="w")
 
     # ── 오른쪽 미리보기 패널 ──────────────────────────────────────────────────
     def _build_preview_panel(self):
@@ -382,6 +418,39 @@ class PDFSlicerApp(ctk.CTk):
             self.next_page()
 
     # ──────────────────────────────────────────────────────────────────────────
+    # 결번 / 페이지 수 예외 입력 파싱
+    # ──────────────────────────────────────────────────────────────────────────
+    @staticmethod
+    def _parse_skip_numbers(text):
+        """"3, 7, 15" 같은 입력을 {3, 7, 15} 집합으로 변환."""
+        skip = set()
+        for tok in text.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            if not tok.isdigit():
+                raise ValueError(f"결번 '{tok}' 은(는) 올바른 번호가 아닙니다.")
+            skip.add(int(tok))
+        return skip
+
+    @staticmethod
+    def _parse_exceptions(text):
+        """"5:4, 12:6" 같은 입력을 {5: 4, 12: 6} 딕셔너리로 변환."""
+        exceptions = {}
+        for tok in text.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            if ":" not in tok:
+                raise ValueError(f"페이지 수 예외 '{tok}' 형식이 올바르지 않습니다. (예: 5:4)")
+            num_str, page_str = tok.split(":", 1)
+            num_str, page_str = num_str.strip(), page_str.strip()
+            if not num_str.isdigit() or not page_str.isdigit() or int(page_str) < 1:
+                raise ValueError(f"페이지 수 예외 '{tok}' 형식이 올바르지 않습니다. (예: 5:4)")
+            exceptions[int(num_str)] = int(page_str)
+        return exceptions
+
+    # ──────────────────────────────────────────────────────────────────────────
     # 핵심 로직: 일괄 분할
     # ──────────────────────────────────────────────────────────────────────────
     def execute_bulk_slice(self):
@@ -390,6 +459,8 @@ class PDFSlicerApp(ctk.CTk):
         prefix       = self.entry_prefix.get().strip()
         suffix       = self.entry_suffix.get().strip()
         interval_str = self.entry_interval.get().strip()
+        skip_str     = self.entry_skip.get().strip()
+        exc_str      = self.entry_exceptions.get().strip()
 
         if not os.path.isfile(input_pdf):
             messagebox.showerror("오류", "스캔한 원본 PDF 파일을 먼저 선택하세요.")
@@ -403,6 +474,21 @@ class PDFSlicerApp(ctk.CTk):
 
         interval = int(interval_str)
 
+        try:
+            skip_numbers = self._parse_skip_numbers(skip_str)
+            exceptions   = self._parse_exceptions(exc_str)
+        except ValueError as e:
+            messagebox.showerror("입력 오류", str(e))
+            return
+
+        overlap = skip_numbers & exceptions.keys()
+        if overlap:
+            messagebox.showerror(
+                "입력 오류",
+                f"번호 {', '.join(str(n) for n in sorted(overlap))} 은(는) "
+                "결번과 페이지 수 예외에 동시에 지정될 수 없습니다.")
+            return
+
         if not os.path.exists(dest_folder):
             try:
                 os.makedirs(dest_folder)
@@ -414,18 +500,36 @@ class PDFSlicerApp(ctk.CTk):
         self.label_status.configure(text="분할 중입니다…", text_color="#60A5FA")
 
         threading.Thread(target=self._slice_thread,
-                         args=(input_pdf, dest_folder, prefix, suffix, interval),
+                         args=(input_pdf, dest_folder, prefix, suffix, interval,
+                               skip_numbers, exceptions),
                          daemon=True).start()
 
-    def _slice_thread(self, input_pdf, dest_folder, prefix, suffix, interval):
+    def _slice_thread(self, input_pdf, dest_folder, prefix, suffix, interval,
+                       skip_numbers, exceptions):
         try:
             doc_original = fitz.open(input_pdf)
             total_p = len(doc_original)
-            saved = 0
 
-            for i, start_idx in enumerate(range(0, total_p, interval)):
-                end_idx = min(start_idx + interval - 1, total_p - 1)
-                student_num = i + 1
+            saved = 0
+            student_num = 1
+            page_idx = 0
+            warnings = []
+
+            while page_idx < total_p:
+                # 결번: 페이지를 소비하지 않고 번호만 건너뜀
+                if student_num in skip_numbers:
+                    student_num += 1
+                    continue
+
+                pages_for_student = exceptions.get(student_num, interval)
+                start_idx = page_idx
+                end_idx = start_idx + pages_for_student - 1
+
+                if end_idx > total_p - 1:
+                    warnings.append(
+                        f"{student_num}번: 지정한 페이지 수({pages_for_student}쪽)가 "
+                        f"남은 페이지({total_p - start_idx}쪽)보다 많아 남은 페이지까지만 저장했습니다.")
+                    end_idx = total_p - 1
 
                 doc_new = fitz.open()
                 doc_new.insert_pdf(doc_original, from_page=start_idx, to_page=end_idx)
@@ -435,11 +539,14 @@ class PDFSlicerApp(ctk.CTk):
                 doc_new.close()
                 saved += 1
 
-                self.after(0, lambda s=saved, tot=total_p//interval: self.label_status.configure(
-                    text=f"진행: {s} / {tot}", text_color="#60A5FA"))
+                page_idx = end_idx + 1
+                student_num += 1
+
+                self.after(0, lambda s=saved, p=page_idx, tot=total_p: self.label_status.configure(
+                    text=f"진행: {s}명 저장됨 ({p} / {tot} 쪽)", text_color="#60A5FA"))
 
             doc_original.close()
-            self.after(0, self._on_slice_done, saved, dest_folder)
+            self.after(0, self._on_slice_done, saved, dest_folder, warnings)
 
         except Exception as e:
             self.after(0, lambda: [
@@ -448,11 +555,14 @@ class PDFSlicerApp(ctk.CTk):
                 messagebox.showerror("오류", f"작업 중 문제 발생:\n{e}")
             ])
 
-    def _on_slice_done(self, saved, dest_folder):
+    def _on_slice_done(self, saved, dest_folder, warnings=None):
         self.btn_run.configure(state="normal", text="▶  일괄 분할 시작")
         self.label_status.configure(text=f"✓ {saved}명 파일 완성!", text_color=SUCCESS)
-        messagebox.showinfo("완료",
-            f"✅ {saved}명의 파일로 분할 완료!\n\n📁 저장 위치:\n{dest_folder}")
+
+        msg = f"✅ {saved}명의 파일로 분할 완료!\n\n📁 저장 위치:\n{dest_folder}"
+        if warnings:
+            msg += "\n\n⚠ 확인이 필요합니다:\n" + "\n".join(warnings)
+        messagebox.showinfo("완료", msg)
         os.startfile(dest_folder)
 
 
